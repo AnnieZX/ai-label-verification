@@ -6,6 +6,10 @@ from pathlib import Path
 
 from PIL import Image
 
+# Orthomosaic PNGs are intentionally very large in this project; disable
+# Pillow's decompression bomb safeguard for this controlled research use case.
+Image.MAX_IMAGE_PIXELS = None
+
 
 def crop_center_patch(image_path: str, output_path: str, patch_size: int = 800) -> str:
     """
