@@ -1,0 +1,75 @@
+=== Open-source LVM demo result ===
+image path: /Users/luozixiao/projects/ai-label-verification/data/sample/demo_image.jpg
+bbox: [120, 80, 320, 260]
+model name: llava-hf/llava-onevision-qwen2-0.5b-ov-hf
+decision: suspicious
+score: None
+explanation: user 
+You are a strict evaluator of object detection bounding boxes.
+
+The predicted object label is: car
+The bounding box is: [120.0, 80.0, 320.0, 260.0]
+
+Carefully examine the image and the bounding box.
+
+Your task is to determine whether the bounding box accurately localizes the object.
+
+Strict evaluation criteria:
+
+* The box must tightly enclose the object.
+* If the box includes large background regions -> penalize.
+* If the box misses parts of the object -> penalize.
+* If the box is shifted or not centered on the object -> penalize.
+
+Important:
+Do NOT be lenient. If there is any significant issue, choose 'review' or 'suspicious'.
+
+Return ONLY a JSON object with:
+{
+"decision": one of ["likely_good", "review", "suspicious"],
+"score": float between 0 and 1,
+"explanation": short explanation grounded in visual reasoning
+}
+
+Do NOT include the options in the answer.
+Do NOT output anything except JSON.assistant
+{
+"decision": "suspicious",
+"score": 0.5,
+"explanation": "The bounding box is not tightly enclosed around the car, which is a sign of a potential issue with object detection."
+}
+raw_text: user 
+You are a strict evaluator of object detection bounding boxes.
+
+The predicted object label is: car
+The bounding box is: [120.0, 80.0, 320.0, 260.0]
+
+Carefully examine the image and the bounding box.
+
+Your task is to determine whether the bounding box accurately localizes the object.
+
+Strict evaluation criteria:
+
+* The box must tightly enclose the object.
+* If the box includes large background regions -> penalize.
+* If the box misses parts of the object -> penalize.
+* If the box is shifted or not centered on the object -> penalize.
+
+Important:
+Do NOT be lenient. If there is any significant issue, choose 'review' or 'suspicious'.
+
+Return ONLY a JSON object with:
+{
+"decision": one of ["likely_good", "review", "suspicious"],
+"score": float between 0 and 1,
+"explanation": short explanation grounded in visual reasoning
+}
+
+Do NOT include the options in the answer.
+Do NOT output anything except JSON.assistant
+{
+"decision": "suspicious",
+"score": 0.5,
+"explanation": "The bounding box is not tightly enclosed around the car, which is a sign of a potential issue with object detection."
+}
+overlay image: /Users/luozixiao/projects/ai-label-verification/outputs/demo_overlay.jpg

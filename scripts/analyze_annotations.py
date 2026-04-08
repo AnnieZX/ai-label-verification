@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Lightweight stats and mapping checks for patch-based prediction JSON.
+"""Lightweight stats and examples for patch-based prediction JSON (COCO-like / custom).
 
 Usage:
     python analyze_annotations.py
     python analyze_annotations.py data/annotations.json
     python analyze_annotations.py /absolute/path/to/file.json
-    python analyze_annotations.py data/annotations.json --image-dir /path/to/cropped/images
 
-If omitted, the JSON path defaults to ``data/annotations.json`` next to this script.
+If omitted, the path defaults to ``data/annotations.json`` next to this script
+(i.e. this repo's bundled export).
 """
 
 from __future__ import annotations
@@ -20,7 +20,9 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Mapping
 
+# Default export location for this repository (next to repo root = parent of this file).
 _DEFAULT_ANNOTATIONS = Path(__file__).resolve().parent / "data" / "annotations.json"
+
 
 
 def load_annotations_file(path: Path) -> dict[str, Any]:
@@ -58,11 +60,9 @@ def annotation_confidence(annotation: Mapping[str, Any]) -> float | None:
     props = annotation.get("properties")
     if not isinstance(props, Mapping):
         return None
-
     raw = props.get("confidence")
     if raw is None:
         return None
-
     try:
         return float(raw)
     except (TypeError, ValueError):
@@ -105,41 +105,6 @@ def collect_metadata_keys(patches: Mapping[str, Any]) -> set[str]:
     return keys
 
 
-def get_patch_metadata(patch_obj: Mapping[str, Any]) -> Mapping[str, Any]:
-    """Return patch metadata as a mapping, or empty mapping if missing."""
-    meta = patch_obj.get("metadata")
-    if isinstance(meta, Mapping):
-        return meta
-    return {}
-
-
-def candidate_image_name_from_metadata(meta: Mapping[str, Any]) -> str | None:
-    """Best-effort guess for cropped image filename from metadata.
-
-    Current heuristic:
-        image_name = f"{itemId}_{gridIndex}.jpg"
-    """
-    item_id = meta.get("itemId")
-    grid_index = meta.get("gridIndex")
-
-    if item_id is None or grid_index is None:
-        return None
-
-    return f"{item_id}_{grid_index}.jpg"
-
-
-def patch_sort_key(patch_id: str) -> tuple[str, int | str]:
-    """Sort patch IDs naturally when possible.
-
-    Example:
-        item-patch-2 comes before item-patch-10
-    """
-    prefix, sep, suffix = patch_id.rpartition("-patch-")
-    if sep and suffix.isdigit():
-        return (prefix, int(suffix))
-    return (patch_id, patch_id)
-
-
 def print_section(title: str) -> None:
     """Print a section header."""
     line = "=" * len(title)
@@ -150,12 +115,9 @@ def suggest_next_steps(
     num_with_mask: int,
     num_with_bbox: int,
     num_annotations: int,
-    mapping_hits: int,
-    mapping_checked: int,
 ) -> None:
     """Print short, data-driven suggestions."""
     print_section("Next step suggestions")
-
     if num_annotations == 0:
         print("- No annotations found. Check export path or patch filtering.")
         return
@@ -179,27 +141,13 @@ def suggest_next_steps(
             "`pixelBbox` / `segmentationRLE` are populated as expected."
         )
 
-    if mapping_checked > 0:
-        hit_ratio = mapping_hits / mapping_checked
-        print(
-            f"- Mapping heuristic check: {mapping_hits}/{mapping_checked} candidate image "
-            f"filenames existed (~{hit_ratio:.0%})."
-        )
-        if hit_ratio >= 0.8:
-            print("- The current heuristic `image = f\"{itemId}_{gridIndex}.jpg\"` looks promising.")
-        elif hit_ratio == 0:
-            print("- The current filename heuristic did not match any images. You likely need a different mapping rule.")
-        else:
-            print("- The current filename heuristic partially matches; inspect mismatches before building the loader.")
-
-    print("- Spot-check low-confidence or high-count patches against cropped images.")
-    print("- Next: build a small sample set, then write a data loader and overlay visualization.")
+    print("- Spot-check low-confidence or high-count patches against images (TIFF URLs in metadata).")
 
 
 def main() -> None:
-    """Parse CLI, analyze patches/annotations, print summary, examples, and mapping hints."""
+    """Parse CLI, analyze patches/annotations, print summary and examples."""
     parser = argparse.ArgumentParser(
-        description="Summarize patch-based prediction JSON and inspect image mapping."
+        description="Summarize patch-based prediction JSON for debugging."
     )
     parser.add_argument(
         "json_path",
@@ -211,29 +159,17 @@ def main() -> None:
             f"Default: {_DEFAULT_ANNOTATIONS}"
         ),
     )
-    parser.add_argument(
-        "--image-dir",
-        type=Path,
-        default=None,
-        help="Optional cropped image directory to test patch->image filename guesses.",
-    )
     args = parser.parse_args()
-
     path: Path = args.json_path
-    image_dir: Path | None = args.image_dir
 
     if not path.is_file():
         print(f"Error: not a file: {path}", file=sys.stderr)
         sys.exit(1)
 
-    if image_dir is not None and not image_dir.is_dir():
-        print(f"Error: --image-dir is not a directory: {image_dir}", file=sys.stderr)
-        sys.exit(1)
-
     data = load_annotations_file(path)
     patches = get_patches(data)
 
-    patch_ids = sorted((str(pid) for pid in patches.keys()), key=patch_sort_key)
+    patch_ids = sorted(patches.keys(), key=str)
     total_patches = len(patch_ids)
 
     total_annotations = 0
@@ -243,9 +179,6 @@ def main() -> None:
     confidences: list[float] = []
     zero_annotation_patches = 0
     counts_per_patch: list[tuple[str, int]] = []
-
-    mapping_checked = 0
-    mapping_hits = 0
 
     for pid in patch_ids:
         patch_obj = patches[pid]
@@ -258,21 +191,13 @@ def main() -> None:
 
         n = len(anns)
         total_annotations += n
-        counts_per_patch.append((pid, n))
+        counts_per_patch.append((str(pid), n))
         if n == 0:
             zero_annotation_patches += 1
-
-        meta = get_patch_metadata(patch_obj)
-        candidate_image = candidate_image_name_from_metadata(meta)
-        if image_dir is not None and candidate_image is not None:
-            mapping_checked += 1
-            if (image_dir / candidate_image).exists():
-                mapping_hits += 1
 
         for ann in anns:
             if not isinstance(ann, Mapping):
                 continue
-
             label = ann.get("classLabel")
             if label is not None:
                 class_counter[str(label)] += 1
@@ -282,9 +207,9 @@ def main() -> None:
             if has_segmentation_rle(ann):
                 with_mask += 1
 
-            conf = annotation_confidence(ann)
-            if conf is not None:
-                confidences.append(conf)
+            c = annotation_confidence(ann)
+            if c is not None:
+                confidences.append(c)
 
     counts_per_patch.sort(key=lambda x: x[1], reverse=True)
     top5 = counts_per_patch[:5]
@@ -292,10 +217,9 @@ def main() -> None:
     meta_keys_sample = collect_metadata_keys(patches)
     example_patch_ids = patch_ids[: min(5, len(patch_ids))]
 
+    # --- Summary ---
     print_section("Annotation file summary")
     print(f"File: {path.resolve()}")
-    if image_dir is not None:
-        print(f"Image directory: {image_dir.resolve()}")
     print(f"Total patches: {total_patches}")
     print(f"Total annotations: {total_annotations}")
     print(f"Annotations with pixelBbox: {with_bbox}")
@@ -342,30 +266,20 @@ def main() -> None:
         if len(meta_keys_sample) > 40:
             print(f"  ... and {len(meta_keys_sample) - 40} more keys")
 
-    print("\n--- Mapping heuristic summary ---")
-    if image_dir is None:
-        print("  Not checked (pass --image-dir to test candidate filenames).")
-    else:
-        print(f"  Candidate filenames checked: {mapping_checked}")
-        print(f"  Existing candidate files:    {mapping_hits}")
-        if mapping_checked > 0:
-            print(f"  Hit rate:                    {mapping_hits / mapping_checked:.2%}")
-
+    # --- Three example patches ---
     example_ids: list[str] = []
     seen: set[str] = set()
-
     for pid, _ in top5:
         if pid not in seen:
             example_ids.append(pid)
             seen.add(pid)
         if len(example_ids) >= 3:
             break
-
     for pid in patch_ids:
         if len(example_ids) >= 3:
             break
         if pid not in seen:
-            example_ids.append(pid)
+            example_ids.append(str(pid))
             seen.add(pid)
 
     print_section("Example patches (detail)")
@@ -379,24 +293,13 @@ def main() -> None:
         if not isinstance(anns, list):
             anns = []
 
-        meta = get_patch_metadata(raw)
-        meta_keys = sorted(str(k) for k in meta.keys())
-
-        item_id = meta.get("itemId")
-        grid_index = meta.get("gridIndex")
-        candidate_image = candidate_image_name_from_metadata(meta)
-
-        image_exists_str = "(not checked)"
-        if image_dir is not None and candidate_image is not None:
-            candidate_path = image_dir / candidate_image
-            image_exists_str = str(candidate_path.exists())
+        meta = raw.get("metadata")
+        meta_keys: list[str] = []
+        if isinstance(meta, Mapping):
+            meta_keys = sorted(str(k) for k in meta.keys())
 
         print(f"\nPatch id: {pid!r}")
         print(f"  Number of annotations: {len(anns)}")
-        print(f"  itemId: {item_id!r}")
-        print(f"  gridIndex: {grid_index!r}")
-        print(f"  Candidate image filename: {candidate_image!r}")
-        print(f"  Candidate image exists: {image_exists_str}")
         print(f"  Metadata keys ({len(meta_keys)}): {', '.join(meta_keys[:12])}")
         if len(meta_keys) > 12:
             print(f"    ... (+{len(meta_keys) - 12} more)")
@@ -405,11 +308,9 @@ def main() -> None:
             if not isinstance(ann, Mapping):
                 print(f"  Annotation [{i}]: (not an object, skipped)")
                 continue
-
             cl = ann.get("classLabel", "(missing)")
             conf = annotation_confidence(ann)
             conf_str = f"{conf:.6g}" if conf is not None else "(none)"
-
             print(
                 f"  Annotation [{i}]: classLabel={cl!r} "
                 f"bbox={has_pixel_bbox(ann)} mask={has_segmentation_rle(ann)} "
@@ -420,10 +321,10 @@ def main() -> None:
         num_with_mask=with_mask,
         num_with_bbox=with_bbox,
         num_annotations=total_annotations,
-        mapping_hits=mapping_hits,
-        mapping_checked=mapping_checked,
     )
 
 
 if __name__ == "__main__":
     main()
+
+
