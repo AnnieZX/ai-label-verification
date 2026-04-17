@@ -1,0 +1,31 @@
+Gemini sample verifier — experiment log
+======================================
+
+Date: 2026-04-16 (automated run in dev environment)
+
+Command:
+  python scripts/test_gemini_sample.py
+
+Prerequisite:
+  pip install google-genai pillow  (google-genai was installed before this run)
+
+Environment:
+  GEMINI_API_KEY: not set in this run
+
+Outcome:
+  Script exited with ValueError before writing outputs/lvm_results/gemini_sample_result.json:
+
+  ValueError: GEMINI_API_KEY is not set or is empty.
+
+How to complete the experiment locally:
+  export GEMINI_API_KEY=your_key
+  optional: export GEMINI_MODEL=gemini-2.5-pro
+  python scripts/test_gemini_sample.py
+
+Expected artifact after success:
+  outputs/lvm_results/gemini_sample_result.json
+
+Sample image resolution order:
+  outputs/test_patch.jpg
+  outputs/demo_overlay.jpg
+  outputs/debug_bbox.png

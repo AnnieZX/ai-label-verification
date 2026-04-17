@@ -1,0 +1,8 @@
+{
+  "image_path": "/Users/luozixiao/projects/ai-label-verification/outputs/demo_overlay.jpg",
+  "label": "item",
+  "decision": "review",
+  "score": 0.4,
+  "explanation": "The highlighted region shows a car, and the label is 'item'. While a car is an item, the label is too generic for the specific object detected.",
+  "raw_response": "{\"decision\": \"review\", \"score\": 0.4, \"explanation\": \"The highlighted region shows a car, and the label is 'item'. While a car is an item, the label is too generic for the specific object detected.\"}"
+}
